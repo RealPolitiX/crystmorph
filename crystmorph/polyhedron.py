@@ -41,6 +41,26 @@ class ConvexPolyhedron(object):
             return False
 
 
+def is_corner_sharing(ph1, ph2, **kwargs):
+    """ Determine if two polyhedra are sharing a corner.
+    """
+
+    is_sharing = []
+    
+    if ph1.n_vertex >= ph2.n_vertex:
+        for v in ph2.vertices:
+            is_sharing.append(np.allclose(ph1.vertices, v, **kwargs))
+    else:
+        for v in ph1.vertices:
+            is_sharing.append(np.allclose(ph2.vertices, v, **kwargs))
+    nclose = np.sum(is_sharing)
+    
+    if nclose == 1:
+        return True # It's counted as corner sharing iff one vertex is common
+    else:
+        return False
+
+
 class Face3D(object):
     """ Polygon data structure featuring an ordered vertex list.
     """
@@ -93,3 +113,5 @@ class Face3D(object):
             total += prod
         
         self.area = abs(np.dot(total, self.unit_normal) / 2)
+
+
