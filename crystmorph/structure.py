@@ -128,5 +128,76 @@ class StructureParser(object):
             return struct_perturbed
 
 
+class PerovskiteParser(StructureParser):
+    """ Parser class for perovskite structures. The single perovskite chemical formula
+    follows ABX3 (A, B are cations, X is the anion). The double perovskite chemical formula
+    follows AA'B2X6, A2BB'X6, or AA'BB'X6 (A, A', B, B' are cations).
+    """
 
+    def __init__(self, filepath, form='cif', category='single', parser_kwargs={}):
+
+        super().__init__(filepath=filepath, form=form, parser_kwargs=parser_kwargs)
+        self.category = category
+        self.A_cation = None
+        self.B_cation = None
+
+    def count(self, propname):
+        """ Count the number of things.
+        """
+
+        propval = getattr(self, propname)
+        if propval is None:
+            return 0
+        else:
+            return len(propval)
+
+    @property
+    def nA(self):
+        """ Number of A cations.
+        """
+
+        return self.count('A_cation')
+
+    @property
+    def nB(self):
+        """ Number of B cations.
+        """
+
+        return self.count('B_cation')
+
+    def find_cation(self, label, names=None):
+        """ Find the cation and their basic information from the known structure.
+        """
+
+        if label == 'A':
+            self.A_cation = self.find_atoms(names=names)
+        elif label == 'B':
+            self.B_cation = self.find_atoms(names=names)
+
+    def find_octahedron(self, radius=3.5, B_idx=0):
+        """ Determine the octahedral coordination of a B cation.
+
+        **Parameters**:
+        radius: numeric
+            Radial cutoff for finding the atoms within the octahedra.
+        """
+
+        if self.B_cation is None:
+            raise ValueError('B-site cation information is missing.')
+        else:
+            octahedron_dict = self.find_neighbors(radius=radius, idx=B_idx)
+            octahedron = ph.Octahedron(n_vertex=6, n_edge=12, octahedron_dict)
+
+            return octahedron
+
+    def save_structure(self, struct, filepath, form='json', **kwargs):
+        """ Save the adjusted crystal structure.
+        """
+
+        if form == 'json':
+            if (type(struct) == Structure) or (type(struct) == PeriodicSite):
+                dic = struct.as_dict()
+            JSONExporter(obj=dic, filepath=filepath)
+        elif form == 'cif':
+            CIFExporter(obj=struct, filepath=filepath, **kwargs)
         
