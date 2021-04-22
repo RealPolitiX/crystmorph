@@ -7,6 +7,7 @@
 
 from . import transformation as trans
 import numpy as np
+import itertools as it
 
 
 class ConvexPolyhedron(object):
@@ -62,7 +63,7 @@ def is_corner_sharing(ph1, ph2, **kwargs):
         return False
 
 
-class Face3D(object):
+class Face(object):
     """ Coplanar polygon data structure featuring an ordered vertex list.
     """
     
@@ -122,6 +123,66 @@ class Face3D(object):
             total += prod
         
         self.area = abs(np.dot(total, self.unit_normal) / 2)
+
+
+class Ordering(object):
+    """ Class for ordering of a point set.
+    """
+    
+    def __init__(self, n):
+        
+        self.n = n
+        self.indices = list(range(n))
+        
+    def cartesian_product_ordering(self):
+        """ Calculate the Cartesian product ordering.
+        """
+        
+        ordered_indices = it.product(*[self.indices]*self.n)
+        
+        return list(ordered_indices)
+    
+    def cwr_ordering(self):
+        """ Calculate the ordering by combination with replacement (CWR).
+        """
+        
+        ordered_indices = it.combinations_with_replacement(self.indices, self.n)
+        
+        return list(ordered_indices)
+    
+    def permute(shift, keep=True):
+        """ Permute the indices.
+        """
+        
+        rolled = np.roll(self.indices, shift=shift)
+        if keep:
+            self.indices = rolled.tolist()
+        
+        
+class DoubletOrdering(Ordering):
+    """ Class for ordering of two things.
+    """
+    
+    def __init__(self, type='cwr'):
+        
+        super().__init__(2)
+        if type == 'cartesian':
+            self.ordered_indices = self.cartesian_product_ordering()
+        elif type == 'cwr':
+            self.ordered_indices = self.cwr_ordering()
+
+
+class TripletOrdering(Ordering):
+    """ Class for ordering of three things.
+    """
+    
+    def __init__(self, type='cwr'):
+        
+        super().__init__(3)
+        if type == 'cartesian':
+            self.ordered_indices = self.cartesian_product_ordering()
+        elif type == 'cwr':
+            self.ordered_indices = self.cwr_ordering()
 
 
 class Octahedron(ConvexPolyhedron):
