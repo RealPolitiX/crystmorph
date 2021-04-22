@@ -18,3 +18,16 @@ def multiretrieve(info_list, iterable):
     info_dict = {name: value for name, value in zip(info_list, info)}
 
     return info_dict
+
+
+def csm(coords, model):
+    """ Continuous symmetry measure for ordered polyhedral vertices.
+    """
+    
+    numerator = np.sum(np.linalg.norm(coords - model, axis=1))
+    center = coords.mean(axis=0)
+    denominator = np.sum(np.linalg.norm(coords - center, axis=1))
+    
+    metric = numerator / denominator
+    
+    return metric
