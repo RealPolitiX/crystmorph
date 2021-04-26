@@ -5,6 +5,7 @@
 @author: R. Patrick Xian
 """
 
+from math import atan2
 import numpy as np
 
 sin = np.sin
@@ -39,7 +40,7 @@ def scaling3D(sx, sy, sz):
     return mat
 
 
-def rotation_x(rx, radian=False):
+def roxh(rx, radian=False):
     """ Rotation matrix about x axis.
     """
 
@@ -54,22 +55,22 @@ def rotation_x(rx, radian=False):
     return mat
 
 
-def rotation_y(ry, radian=False):
+def rotyh(ry, radian=False):
     """ Rotation matrix about y axis.
     """
 
     if not radian:
         ry = np.radians(ry)
 
-    mat = np.array([[cos(ry), 0, -sin(ry), 0],
-                    [0,       1,        0, 0],
-                    [sin(ry), 0,  cos(ry), 0],
-                    [0,       0,        0, 1]])
+    mat = np.array([[cos(ry),  0,  sin(ry), 0],
+                    [0,        1,        0, 0],
+                    [-sin(ry), 0,  cos(ry), 0],
+                    [0,        0,        0, 1]])
 
     return mat
 
 
-def rotation_z(rz, radian=False):
+def rotzh(rz, radian=False):
     """ Rotation matrix about z axis.
     """
 
@@ -84,6 +85,10 @@ def rotation_z(rz, radian=False):
     return mat
 
 
+#############################################
+# 3D transformation (Cartesian coordinates) #
+#############################################
+
 def Glazer_deform(a, b, c):
     """ Deformation matrix formulation of Glazer tilt system (single/double perovskites).
     """
@@ -91,6 +96,48 @@ def Glazer_deform(a, b, c):
     mat = np.array([[0, -c, b],
                     [-c, 0, a],
                     [b, -a, 0]])
+
+    return mat
+
+
+def rotx(rx, radian=False):
+    """ Rotation matrix about x axis.
+    """
+
+    if not radian:
+        rx = np.radians(rx)
+    
+    mat = np.array([[1,       0,        0],
+                    [0, cos(rx), -sin(rx)],
+                    [0, sin(rx),  cos(rx)]])
+    
+    return mat
+
+
+def roty(ry, radian=False):
+    """ Rotation matrix about y axis.
+    """
+
+    if not radian:
+        ry = np.radians(ry)
+
+    mat = np.array([[cos(ry),  0,  sin(ry)],
+                    [0,        1,        0],
+                    [-sin(ry), 0,  cos(ry)]])
+
+    return mat
+
+
+def rotz(rz, radian=False):
+    """ Rotation matrix about z axis.
+    """
+
+    if not radian:
+        rz = np.radians(rz)
+
+    mat = np.array([[cos(rz), -sin(rz), 0],
+                    [sin(rz),  cos(rz), 0],
+                    [0,              0, 1]])
 
     return mat
 
@@ -121,3 +168,22 @@ def homo2cart(coords_homo):
 # Crystallographic transformation #
 ###################################
 
+def cart2frac(cart_coords, cellAxes):
+    """
+    Conversion from Cartesian to fractional coordinates
+    """
+
+    invAxes = np.linalg.inv(cellAxes)
+    xyzFrac = np.dot(cart_coords, invAxes)
+
+    return xyzFrac
+
+
+def frac2cart(xyzFrac, axes):
+    """
+    Conversion from fractional to Cartesian coordinates
+    """
+
+    xyzCart = np.dot(xyzFrac, axes)
+
+    return xyzCart

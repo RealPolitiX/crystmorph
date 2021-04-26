@@ -13,8 +13,8 @@ def multiretrieve(info_list, iterable):
     """ Retrieve multiple pieces of information at different levels of iterable object.
     """
 
-    info = list(map(lambda s: attrgetter(info_list)(s), iterable))
-    info = np.array(info).T
+    info = list(map(lambda s: attrgetter(*info_list)(s), iterable))
+    info = np.asarray(info).T
     info_dict = {name: value for name, value in zip(info_list, info)}
 
     return info_dict
