@@ -142,6 +142,73 @@ def rotz(rz, radian=False):
     return mat
 
 
+def kabsch(A, B):
+    """ Calculates the least-squares best-fit transform that maps corresponding points
+    A to B in m spatial dimensions using the Kabsch algorithm.
+    
+    **Parameters**\n
+    A, B: numpy.ndarray, numpy.ndarray
+          Coordinates of the corresponding points (Nxm)
+    
+    **Returns**\n
+    R: numpy.ndarray
+        mxm rotation matrix
+    t: numpy.ndarray
+        mx1 translation vector
+    """
+    
+    if not A.shape == B.shape:
+        raise ValueError('The shapes of A and B should be the same.')
+    else:
+        # get number of dimensions
+        m = A.shape[1]
+
+        # translate points to their centroids
+        centroid_A = np.mean(A, axis=0)
+        centroid_B = np.mean(B, axis=0)
+        AA = A - centroid_A
+        BB = B - centroid_B
+
+        # rotation matrix
+        H = np.dot(AA.T, BB)
+        U, S, Vt = np.linalg.svd(H)
+        R = np.dot(Vt.T, U.T)
+
+        # special reflection case
+        if np.linalg.det(R) < 0:
+           Vt[m-1,:] *= -1
+           R = np.dot(Vt.T, U.T)
+
+        # translation
+        t = centroid_B.T - np.dot(R,centroid_A.T)
+
+        return R, t
+
+
+def rot2euler(R, radian=False):
+    """ Decompose arbitrary 3D rotation matrix into rotations around x, y, and z
+    (applied in the order Rz.Ry.Rx) axis respectively and return the Euler angles.
+    """
+ 
+    sy = np.sqrt(R[0,0] * R[0,0] +  R[1,0] * R[1,0])
+    singular = sy < 1e-6
+    if  not singular :
+        x = atan2(R[2,1] , R[2,2])
+        y = atan2(-R[2,0], sy)
+        z = atan2(R[1,0], R[0,0])
+    else:
+        x = atan2(-R[1,2], R[1,1])
+        y = atan2(-R[2,0], sy)
+        z = 0
+        
+    angles = np.array([x, y, z])
+    
+    if not radian:
+        return np.degrees(angles)
+    else:
+        return angles
+
+
 def cart2homo(coords_cart):
     """ Transform from Cartesian to homogeneous coordinates.
     """
