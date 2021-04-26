@@ -8,6 +8,9 @@ try:
 except:
     pass
 
+import warnings as w
+w.filterwarnings("ignore")
 
-__version__ = '0.0.0'
+
+__version__ = '0.1.0'
 __author__ = 'R. Patrick Xian'
