@@ -20,6 +20,21 @@ def multiretrieve(info_list, iterable):
     return info_dict
 
 
+def multidict_merge(composites):
+    """ Merge multiple dictionaries with the same keys.
+    """
+    
+    if len(composites) in [0, 1]:
+        return composites
+    else:
+        # Initialize an empty dictionary with only keys
+        merged = dict.fromkeys(list(composites[0].keys()), [])
+        for k in merged.keys():
+            merged[k] = list(d[k] for d in composites)
+    
+    return merged
+
+
 def csm(coords, model):
     """ Continuous symmetry measure for ordered polyhedral vertices.
     """

@@ -9,10 +9,12 @@ from . import polyhedron as ph, utils as u
 import numpy as np
 # Geometry packages
 import vg
+from pyrr import plane
 
 import json
 from copy import deepcopy
-from funcy import project
+import operator as op
+from funtools import reduce
 try:
     import pymatgen
     from pymatgen.core.structure import Structure
@@ -182,7 +184,7 @@ class StructureParser(object):
         if ret:
             return struct_perturbed
 
-    def calculate_distances(atom1=[], atom2=[], atom_pairs=None):
+    def calculate_distances(self, atom1=[], atom2=[], atom_pairs=None):
         """ Calculate distances between specified coordinates of atom pairs.
         """
 
@@ -193,7 +195,7 @@ class StructureParser(object):
 
         return d        
 
-    def calculate_angles(atom1=[], atom2=[], atom3=[], atom_trios=None):
+    def calculate_angles(self, atom1=[], atom2=[], atom3=[], atom_trios=None):
         """ Calculate angles between specified coordinates of atom trios.
         """
 
@@ -203,6 +205,201 @@ class StructureParser(object):
         ag = vg.angle(atom2-atom1, atom2-atom3)
 
         return ag
+
+
+class Neighborhood(object):
+    """ Class for ordering neighborhood atomic sites.
+    """
+    
+    def __init__(self, atom_sites, site_indices=None, site_coords=None):
+        
+        # self.isites = tuple(atom_sites)
+        self.sites = list(atom_sites)
+        self.ordering = []
+        
+        if site_indices is None:
+            self.site_indices = list(s['index'] for s in self.sites)
+        else:
+            self.site_indices = site_indices
+            
+        if site_coords is None:
+            self.site_coords = list(s['site'].coords for s in self.sites)
+        else:
+            self.site_coords = site_coords
+        
+        self.center = np.mean(self.site_coords, axis=0)
+        self.cvdist = [np.linalg.norm(cd - self.center) for cd in cds]
+        self.mean_cvdist = np.mean(self.cvdist)
+        
+    @property
+    def nsite(self):
+        """ Number of atomic sites.
+        """
+        
+        return len(self.sites)
+        
+    def _get_pairs(self, components, exclude=[]):
+        """ Generate a list of every two pairs of nonequivalent components.
+        """
+        
+        if len(exclude) != 0:
+            excluded_components = op.itemgetter(*exclude)(components)
+            comps = [i for i in components if i not in excluded_components]
+        else:
+            comps = components
+        
+        return [list(cb) for cb in it.combinations(comps, 2)]
+        
+    def _get_trios(self, components, exclude=[]):
+        """ Generate a list of every three nonequivalent components.
+        """
+        
+        if len(exclude) != 0:
+            excluded_components = op.itemgetter(*exclude)(components)
+            comps = [i for i in components if i not in excluded_components]
+        else:
+            comps = components
+        
+        return [list(cb) for cb in it.combinations(comps, 3)]
+    
+    def get_atom_pairs(self, exclude=[]):
+        """ Generate every two pairs of nonequivalent atoms.
+        """
+        
+        return self._get_pairs(self.sites, exclude=exclude)
+    
+    def get_atom_trios(self, exclude=[]):
+        """ Generate every three nonequivalent atoms.
+        """
+        
+        return self._get_trios(self.sites, exclude=exclude)
+    
+    def get_pair_geometries(self, exclude_atoms=[], as_dict=False):
+        """ Obtain pairwise direction vectors of atoms. Atom_pairs_merged list has the following structure,
+        
+        atom_pairs_merged = [pair_1, pair_2, ...],
+        pair_1 = {'coords': [...], 'direction': array([...]),
+                  'index': [...], 'length': ...},
+        
+        with 'coords' containing the Cartesian coordinates of atom pair, 'direction' containing
+        the directional vector connecting the atom pair, 'index' containing the atomic indices
+        of the pair within the crystal structure, 'length' containing the distance between the atoms.
+        
+        The atom_pairs_dict returns with additional integer-valued dictionary keys. The integer is assigned
+        according to the sequence of the atom pair.
+        """
+        
+        atom_pairs = self._get_pairs(components=self.sites, exclude=exclude_atoms)
+        atom_pairs_merged = list(map(u.multidict_merge, atom_pairs))
+        for p in atom_pairs_merged:
+            p['coords'] = []
+            p['coords'].extend([s.coords for s in p['site']])
+            del p['site']
+        
+            p['direction'] = op.sub(*p['coords'])
+            p['length'] = sqrt(sum(p['direction']**2))
+        
+        if not as_dict:
+            return atom_pairs_merged
+        else:
+            npairs = len(atom_pairs_merged)
+            atom_pairs_dict = dict(zip(range(npairs), atom_pairs_merged))
+            return atom_pairs_dict
+    
+    def get_coplanar_atom_ids(self, exclude_atoms=[], parallel_tol=1e-8, length_filter=True, **kwargs):
+        """ Obtain sets of approximately coplanar vertices by filtering geometric features.
+        
+        1. Impose length filter on individual atom pairs (distance should be within a range).
+        2. Impose approximate collinearity filter on pairs of internuclear vectors (retrieve the vectors that
+        would be the base edges of the coordination polyhedron). This amounts to a coplanarity test on atom positions.
+        
+        Returns unordered indices of coplanar atoms.
+        """
+        
+        all_atom_pairs = self.get_pair_geometries(exclude_atoms=exclude_atoms, as_dict=False)
+        # Impose length filter
+        if length_filter:
+            length_range = kwargs.pop('length_range', [1.0, 2.0])
+            length_range = np.array(length_range) * self.mean_cvdist
+            lmin, lmax = min(length_range), max(length_range)
+            
+            all_distances = [p['length'] for p in all_atom_pairs]
+            length_filtered_indices = np.argwhere((all_distances < lmax) & (all_distances > lmin))
+            
+            all_atom_pairs = op.itemgetter(*length_filtered_indices)(all_atom_pairs)
+            
+        vector_pairs = self._get_pairs(all_atom_pairs)
+        # Impose approximate collinearity filter on internuclear vectors
+        collinearity = np.array([vg.almost_collinear(vp[0]['direction'], vp[1]['direction']) for vp in vector_pairs])
+        collinearity_indices = np.argwhere(collinearity == True)
+        collinear_vectors = op.itemgetter(*collinearity_indices)(vector_pairs)
+        
+        # Break down the collinear vector pairs into coplanar atoms and retrieve the unique indices
+        coplanar_atoms = reduce(op.add, collinear_vectors)
+        coplanar_atom_indices = list(set(p['index'] for p in coplanar_atoms))
+        
+        return coplanar_atom_indices
+    
+    @property
+    def ordered_index(self):
+        """ Ordered atomic indices.
+        """
+        
+        try:
+            indices = [self.site_indices[i] for i in self.ordering]
+            return indices
+        except:
+            return []
+        
+    @property
+    def ordered_coords(self):
+        """ Ordered atomic coordinates.
+        """
+        
+        try:
+            coords = [self.site_coords[i] for i in self.ordering]
+            return coords
+        except:
+            return []
+        
+    def get_ordered_vertices(self, indices=None, direction='ccw', ordering=[], site_index=False):
+        """ Obtain vertices after imposing ordering, referred to as counterclockwise or clockwise spiral.
+        The apical atoms are ordered by the relationship to midplane.
+        """
+        
+        if len(ordering) != 0:
+            self.ordering = ordering
+        else:
+            in_plane_coords = [a['site'].coords for a in self.sites if a['index'] in indices]
+            oo_plane_indices = [a['index'] for a in self.sites if a['index'] not in indices]
+            oo_plane_coords = [a['site'].coords for a in self.sites if a['index'] not in indices]
+
+            # Order coplanar atoms according to their coordinates
+            in_plane_order = pointset_order(in_plane_coords, direction=direction, ret='order')
+            in_plane_indices = [indices[i] for i in in_place_order]
+            
+            # Order apical atoms according to their position below or above the midplane
+            midplane = plane.create_from_points(*in_plane_coords[:3])
+            upper, lower = [], []
+            for opc in oo_plane_coords:
+                if opc.dot(midplane[:3]) > 0:
+                    upper.append(opc)
+                else:
+                    lower.append(opc)
+                    
+            ordered_indices = upper + in_plane_indices + lower
+            self.ordering = [self.site_indices.index(oi) for oi in ordered_indices]
+        
+        # Impose ordering on the site atoms
+        ordered_vertices = {}
+        ordered_vertices['order'] = list(range(len(self.site_indices)))
+        ordered_vertices['coords'] = self.ordered_coords
+        
+        if site_index:
+            ordered_vertices['index'] = self.ordered_index
+        
+        return ordered_vertices
+
 
 class PerovskiteParser(StructureParser):
     """ Parser class for perovskite structures. The single perovskite chemical formula
