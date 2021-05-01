@@ -7,6 +7,7 @@
 
 from . import transformation as trans
 import numpy as np
+import vg
 import itertools as it
 
 
@@ -129,28 +130,30 @@ class Ordering(object):
     """ Class for ordering of a point set.
     """
     
-    def __init__(self, n):
+    def __init__(self, *n):
         
         self.n = n
-        self.indices = list(range(n))
+        self.n_parts = len(n)
+        self.indices = [list(range(ni)) for ni in n]
         
     def cartesian_product_ordering(self):
-        """ Calculate the Cartesian product ordering.
+        """ Calculate the Cartesian product ordering of the set.
         """
         
-        ordered_indices = it.product(*[self.indices]*self.n)
+        ordered_indices = it.product(*[self.indices*self.n])
         
         return list(ordered_indices)
     
     def cwr_ordering(self):
-        """ Calculate the ordering by combination with replacement (CWR).
+        """ Calculate the set ordering by combination with replacement (CWR).
         """
         
-        ordered_indices = it.combinations_with_replacement(self.indices, self.n)
+        if self.n_parts == 1:
+            ordered_indices = it.combinations_with_replacement(self.indices, self.n)
         
         return list(ordered_indices)
     
-    def permute(shift, keep=True):
+    def permute(self, shift, keep=True):
         """ Permute the indices.
         """
         
@@ -189,17 +192,17 @@ class Octahedron(ConvexPolyhedron):
     """ Octahedral object with coordinate transformation of its vertices and faces.
     """
     
-    def __init__(self, n_vertex=6, n_edge=12, poly_type='regular', vertices=None, **kwargs):
+    def __init__(self, n_vertex=6, n_edge=12, vertices=None, **kwargs):
         
         center = kwargs.pop('center', np.array([0, 0, 0]))
         super().__init__(self, center=center, n_vertex=n_vertex, n_edge=n_edge)
-        self.poly_type = poly_type
         self.vertices = vertices
         
-    def generate_vertices(self, radius, angles=None, alpha=0, beta=0, gamma=0):
+    def generate_vertices(self, radius, poly_type='regular', angles=None, alpha=0, beta=0, gamma=0):
         """ Generate the vertex coordinates of the octahedron.
         """
-                
+        
+        self.poly_type = poly_type
         # Generate the coordinates of vertices
         if self.poly_type == 'regular': # regular octahedron
             a = radius
@@ -221,8 +224,8 @@ class Octahedron(ConvexPolyhedron):
             alpha, beta, gamma = angles
         
         ctr = self.center
-        transform_list = [trans.translation3D(*ctr), trans.rotation_z(gamma),
-                          trans.rotation_y(beta), trans.rotation_x(alpha),
+        transform_list = [trans.translation3D(*ctr), trans.rotzh(gamma),
+                          trans.rotyh(beta), trans.rotxh(alpha),
                           trans.translation3D(*-ctr)]
         
         transform_matrix = np.matmul(*transform_list)
@@ -231,5 +234,29 @@ class Octahedron(ConvexPolyhedron):
         # Create vertex list
         keys = range(1, len(self.n_vertex)+1)
         self.verts_dict = dict(keys, self.vertices)
+
+    @property
+    def apical_vector(self):
+        """ Apical vector of the octahedron.
+        """
+
+        return self.vertices[0] - self.vertices[-1]
+
+
+    def vector_orientation(self, vector, refs=None):
+        """ Orientation angles of a vector.
+        """
+
+        if refs is None:
+            xvec = np.array([1, 0, 0])
+            yvec = np.array([0, 1, 0])
+            zvec = np.array([0, 0, 1])
+            refs = [xvec, yvec, zvec]
+
+        angles = [vg.angle(vector, ref) for ref in refs]
+
+        return angles
+
+
 
 

@@ -14,7 +14,7 @@ from pyrr import plane
 import json
 from copy import deepcopy
 import operator as op
-from funtools import reduce
+from functools import reduce
 try:
     import pymatgen
     from pymatgen.core.structure import Structure
