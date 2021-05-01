@@ -319,24 +319,27 @@ class Neighborhood(object):
         all_atom_pairs = self.get_pair_geometries(exclude_atoms=exclude_atoms, as_dict=False)
         # Impose length filter
         if length_filter:
-            length_range = kwargs.pop('length_range', [1.0, 2.0])
+            length_range = kwargs.pop('length_range', [1.0, 1.8])
             length_range = np.array(length_range) * self.mean_cvdist
             lmin, lmax = min(length_range), max(length_range)
             
             all_distances = [p['length'] for p in all_atom_pairs]
-            length_filtered_indices = np.argwhere((all_distances < lmax) & (all_distances > lmin))
+            length_filtered_indices = np.argwhere((all_distances < lmax) & (all_distances > lmin)).ravel()
             
             all_atom_pairs = op.itemgetter(*length_filtered_indices)(all_atom_pairs)
             
         vector_pairs = self._get_pairs(all_atom_pairs)
         # Impose approximate collinearity filter on internuclear vectors
         collinearity = np.array([vg.almost_collinear(vp[0]['direction'], vp[1]['direction']) for vp in vector_pairs])
-        collinearity_indices = np.argwhere(collinearity == True)
+        collinearity_indices = np.argwhere(collinearity == True).ravel()
         collinear_vectors = op.itemgetter(*collinearity_indices)(vector_pairs)
         
         # Break down the collinear vector pairs into coplanar atoms and retrieve the unique indices
         coplanar_atoms = reduce(op.add, collinear_vectors)
-        coplanar_atom_indices = list(set(p['index'] for p in coplanar_atoms))
+        paired_atom_indices = [p['index'] for p in coplanar_atoms]
+        # Take only the unique atomic indices
+        paired_atom_indices = set(reduce(op.add, paired_atom_indices))
+        coplanar_atom_indices = list(paired_atom_indices)
         
         return coplanar_atom_indices
     
@@ -362,7 +365,7 @@ class Neighborhood(object):
         except:
             return []
         
-    def get_ordered_vertices(self, indices=None, direction='ccw', ordering=[], site_index=False):
+    def get_ordered_vertices(self, indices=None, direction='ccw', ordering=[], site_index=True):
         """ Obtain vertices after imposing ordering, referred to as counterclockwise or clockwise spiral.
         The apical atoms are ordered by the relationship to midplane.
         """
@@ -375,8 +378,8 @@ class Neighborhood(object):
             oo_plane_coords = [a['site'].coords for a in self.sites if a['index'] not in indices]
 
             # Order coplanar atoms according to their coordinates
-            in_plane_order = pointset_order(in_plane_coords, direction=direction, ret='order')
-            in_plane_indices = [indices[i] for i in in_place_order]
+            in_plane_order = u.pointset_order(np.array(in_plane_coords), direction=direction, ret='order')
+            in_plane_indices = [indices[i] for i in in_plane_order]
             
             # Order apical atoms according to their position below or above the midplane
             midplane = plane.create_from_points(*in_plane_coords[:3])

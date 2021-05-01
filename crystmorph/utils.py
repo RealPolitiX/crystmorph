@@ -35,6 +35,45 @@ def multidict_merge(composites):
     return merged
 
 
+def pointset_order(pset, center=None, direction='ccw', ret='order'):
+    """
+    Order a point set around a center in a clockwise or counterclockwise way.
+
+    :Parameters:
+        pset : 2D array
+            Pixel coordinates of the point set.
+        center : list/tuple/1D array | None
+            Pixel coordinates of the putative shape center.
+        direction : str | 'ccw'
+            Direction of the ordering ('cw' or 'ccw').
+
+    :Return:
+        pset_ordered : 2D array
+            Sorted pixel coordinates of the point set.
+    """
+
+    dirdict = {'cw':1, 'ccw':-1}
+
+    # Calculate the coordinates of the
+    if center is None:
+        pmean = np.mean(pset, axis=0)
+        pshifted = pset - pmean
+    else:
+        pshifted = pset - center
+
+    pangle = np.arctan2(pshifted[:, 1], pshifted[:, 0]) * 180/np.pi
+    # Sorting order
+    order = np.argsort(pangle)[::dirdict[direction]]
+    pset_ordered = pset[order]
+    
+    if ret == 'order':
+        return order
+    elif ret == 'points':
+        return pset_ordered
+    elif ret == 'all':
+        return order, pset_ordered
+
+
 def csm(coords, model):
     """ Continuous symmetry measure for ordered polyhedral vertices.
     """
