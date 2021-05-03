@@ -194,8 +194,11 @@ class Octahedron(ConvexPolyhedron):
     
     def __init__(self, n_vertex=6, n_edge=12, vertices=None, **kwargs):
         
-        center = kwargs.pop('center', np.array([0, 0, 0]))
-        super().__init__(self, center=center, n_vertex=n_vertex, n_edge=n_edge)
+        if vertices is None:
+            center = kwargs.pop('center', np.array([0, 0, 0]))
+        else:
+            center = np.mean(vertices, axis=0)
+        super().__init__(center=center, n_vertex=n_vertex, n_edge=n_edge)
         self.vertices = vertices
         
     def generate_vertices(self, radius, poly_type='regular', angles=None, alpha=0, beta=0, gamma=0):
@@ -238,6 +241,9 @@ class Octahedron(ConvexPolyhedron):
     @property
     def apical_vector(self):
         """ Apical vector of the octahedron.
+
+        self.vertices[0] is the vertex on the far side,
+        self.vertices[-1] is the vertex on the near side.
         """
 
         return self.vertices[0] - self.vertices[-1]

@@ -40,7 +40,7 @@ def scaling3D(sx, sy, sz):
     return mat
 
 
-def roxh(rx, radian=False):
+def rotxh(rx, radian=False):
     """ Rotation matrix about x axis.
     """
 

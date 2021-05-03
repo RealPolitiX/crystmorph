@@ -7,6 +7,8 @@
 
 from . import polyhedron as ph, utils as u
 import numpy as np
+import itertools as it
+from math import sqrt
 # Geometry packages
 import vg
 from pyrr import plane
@@ -214,7 +216,13 @@ class Neighborhood(object):
     def __init__(self, atom_sites, site_indices=None, site_coords=None):
         
         # self.isites = tuple(atom_sites)
-        self.sites = list(atom_sites)
+        if atom_sites is None:
+            self.sites = []
+            for sid, sc in zip(site_indices, site_coords):
+                site = {'index':sid, 'coords':sc}
+                self.sites.append(site)
+        else:
+            self.sites = list(atom_sites)
         self.ordering = []
         
         if site_indices is None:
@@ -227,6 +235,10 @@ class Neighborhood(object):
         else:
             self.site_coords = site_coords
         
+        try:
+            cds = list(s['site'].coords for s in self.sites)
+        except:
+            cds = list(s['coords'] for s in self.sites)
         self.center = np.mean(self.site_coords, axis=0)
         self.cvdist = [np.linalg.norm(cd - self.center) for cd in cds]
         self.mean_cvdist = np.mean(self.cvdist)
@@ -306,6 +318,28 @@ class Neighborhood(object):
             atom_pairs_dict = dict(zip(range(npairs), atom_pairs_merged))
             return atom_pairs_dict
     
+    def directional_filter(self, direction_vector=np.array([0, 0, 1]), direction='ccw'):
+        """ Filter the atomic coordinates along a specified direction.
+        """
+        
+        projections = [sc.dot(direction_vector) for sc in self.site_coords]
+        direction_order = np.argsort(projections) # Sort projection in ascending order
+        
+        # Order coplanar atoms according to their coordinates
+        in_plane_order = direction_order[1:-1]
+        in_plane_coords = [self.site_coords[i] for i in in_plane_order]
+        temp_order = u.pointset_order(np.array(in_plane_coords), direction=direction, ret='order')
+        in_plane_order = [in_plane_order[i] for i in temp_order]
+        
+        basal_indices = [self.site_indices[i] for i in in_plane_order]
+        lower = [self.site_indices[direction_order[0]]]
+        upper = [self.site_indices[direction_order[-1]]]
+        
+        ordered_indices = upper + basal_indices + lower
+        ordering = [self.site_indices.index(oi) for oi in ordered_indices]
+        
+        return ordering
+
     def get_coplanar_atom_ids(self, exclude_atoms=[], parallel_tol=1e-8, length_filter=True, **kwargs):
         """ Obtain sets of approximately coplanar vertices by filtering geometric features.
         
@@ -508,11 +542,14 @@ class PerovskiteParser(StructureParser):
 
         pass
 
-    def estimate_tilting(self):
-        """ Perform tilting angle estimation.
+    def estimate_tilt_angles(self, axis=['a', 'b', 'c'], method='glazer'):
+        """ Calculate the tilting angles defined by Glazer.
         """
 
-        pass
+        if method == 'glazer':
+            pass
+        elif method == 'kabsch':
+            pass
 
     def adjust_octahedral_tilting(self):
         """ Adjust the octahedral tilting angles.
