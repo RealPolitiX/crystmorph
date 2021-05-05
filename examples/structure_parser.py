@@ -53,8 +53,8 @@ for ife, fe in enumerate(flist[3:]):
                 octa = cmor.polyhedron.Octahedron(vertices=ordered_octahedron_vertices['coords'])
 
                 # Compute geometric parameters (using Glazer definition)
-                angles = octa.vector_orientation(octa.apical_vector)
-                ags.append(angles[ivec])
+                angle = octa.vector_orientation(octa.apical_vector, refs=[vec])
+                ags.extend(angle)
             
             print('Tilting angles along a, b, c axes are {}, {}, {} degrees'.format(*ags))
 
