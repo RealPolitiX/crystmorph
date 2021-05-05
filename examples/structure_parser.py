@@ -4,6 +4,7 @@
 
 import crystmorph as cmor
 import parsetta as ps
+import numpy as np
 
 from pymatgen.analysis.chemenv.coordination_environments.coordination_geometry_finder import LocalGeometryFinder
 from pymatgen.analysis.chemenv.coordination_environments.chemenv_strategies import SimplestChemenvStrategy
@@ -43,12 +44,12 @@ for ife, fe in enumerate(flist[3:]):
             coplanar_indices = nh.get_coplanar_atom_ids()
             ordered_octahedron_vertices = nh.get_ordered_vertices(indices=coplanar_indices, direction='ccw')
 
-            ags = []
+            ags = [] # Tilting angles
             for ivec, vec in enumerate([xvec, yvec, zvec]):
                 ordering = nh.directional_filter(direction_vector=vec, direction='ccw')
                 ordered_octahedron_vertices = nh.get_ordered_vertices(ordering=ordering)
 
-                # Computer geometric parameters
+                # Computer geometric parameters related to the coordination octahedron
                 octa = cmor.polyhedron.Octahedron(vertices=ordered_octahedron_vertices['coords'])
 
                 # Compute geometric parameters (using Glazer definition)
