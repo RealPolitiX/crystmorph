@@ -9,6 +9,7 @@ from . import transformation as trans
 import numpy as np
 import vg
 import itertools as it
+from scipy.spatial import ConvexHull
 
 
 class ConvexPolyhedron(object):
@@ -200,6 +201,25 @@ class Octahedron(ConvexPolyhedron):
             center = np.mean(vertices, axis=0)
         super().__init__(center=center, n_vertex=n_vertex, n_edge=n_edge)
         self.vertices = vertices
+
+    @property
+    def convex_hull(self):
+        """ Convex hull of the vertices.
+        """
+        try:
+            return ConvexHull(self.vertices)
+        except:
+            return None
+
+    @property
+    def volume(self):
+        """ Volume of the octahedron.
+        """
+
+        try:
+            return self.convex_hull.volume
+        except:
+            return None
         
     def generate_vertices(self, radius, poly_type='regular', angles=None, alpha=0, beta=0, gamma=0):
         """ Generate the vertex coordinates of the octahedron.
