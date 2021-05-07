@@ -21,7 +21,7 @@ zvec = np.array([0, 0, 1])
 fdir = r'../data'
 flist = ps.utils.findFiles(fdir, fstring='/*', ftype='cif')
 
-for ife, fe in enumerate(flist[3:]):
+for ife, fe in enumerate(flist[:]):
     # Parse structure
     sp = cmor.structure.PerovskiteParser(fe)
 
