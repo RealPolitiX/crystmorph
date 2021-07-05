@@ -53,7 +53,8 @@ class JSONParser(object):
     def __init__(self, filepath, **kwargs):
         
         with open(filepath) as f:
-            self.struct = json.load(f, **kwargs)
+            struct = json.load(f, **kwargs)
+            self.struct = Structure.from_dict(struct)
 
 
 class CIFExporter(object):
@@ -91,7 +92,8 @@ class StructureParser(object):
             parser = CIFParser(filepath=filepath, **parser_kwargs)
         elif form == 'json':
             parser = JSONParser(filepath=filepath, **parser_kwargs)
-        self.struct = parser.struct
+        elif form is None:
+            self.struct = parser.struct
 
         # Retrieve essential chemical information (default is the atom name, number, Cartesian and fractional coordinates)
         self.atoms_info_list = kwargs.pop('atoms_info_list', ['specie.name', 'specie.number', 'coords', 'frac_coords'])
@@ -216,19 +218,24 @@ class Neighborhood(object):
     def __init__(self, atom_sites, site_indices=None, site_coords=None):
         
         # self.isites = tuple(atom_sites)
-        if atom_sites is None:
-            self.sites = []
-            for sid, sc in zip(site_indices, site_coords):
-                site = {'index':sid, 'coords':sc}
-                self.sites.append(site)
-        else:
-            self.sites = list(atom_sites)
+        self.sites = []
         self.ordering = []
         
+        if atom_sites is None:
+            for aid, (sid, sc) in enumerate(zip(site_indices, site_coords)):
+                site = {'atom_index':aid, 'site_index':sid, 'coords':sc}
+                self.sites.append(site)
+        else:
+            for aid, asite in enumerate(list(atom_sites)):
+                site = {'atom_index':aid, 'site_index':asite['index'], 'site':asite['site']}
+                self.sites.append(site)
+        
         if site_indices is None:
-            self.site_indices = list(s['index'] for s in self.sites)
+            self.site_indices = list(s['site_index'] for s in self.sites)
         else:
             self.site_indices = site_indices
+        
+        self.atom_indices = list(s['atom_index'] for s in self.sites)
             
         if site_coords is None:
             self.site_coords = list(s['site'].coords for s in self.sites)
@@ -331,12 +338,12 @@ class Neighborhood(object):
         temp_order = u.pointset_order(np.array(in_plane_coords), direction=direction, ret='order')
         in_plane_order = [in_plane_order[i] for i in temp_order]
         
-        basal_indices = [self.site_indices[i] for i in in_plane_order]
-        lower = [self.site_indices[direction_order[0]]]
-        upper = [self.site_indices[direction_order[-1]]]
+        basal_indices = [self.atom_indices[i] for i in in_plane_order]
+        lower = [self.atom_indices[direction_order[0]]]
+        upper = [self.atom_indices[direction_order[-1]]]
         
         ordered_indices = upper + basal_indices + lower
-        ordering = [self.site_indices.index(oi) for oi in ordered_indices]
+        ordering = [self.atom_indices.index(oi) for oi in ordered_indices]
         
         return ordering
 
@@ -370,7 +377,7 @@ class Neighborhood(object):
         
         # Break down the collinear vector pairs into coplanar atoms and retrieve the unique indices
         coplanar_atoms = reduce(op.add, collinear_vectors)
-        paired_atom_indices = [p['index'] for p in coplanar_atoms]
+        paired_atom_indices = [p['site_index'] for p in coplanar_atoms]
         # Take only the unique atomic indices
         paired_atom_indices = set(reduce(op.add, paired_atom_indices))
         coplanar_atom_indices = list(paired_atom_indices)
@@ -407,9 +414,9 @@ class Neighborhood(object):
         if len(ordering) != 0:
             self.ordering = ordering
         else:
-            in_plane_coords = [a['site'].coords for a in self.sites if a['index'] in indices]
-            oo_plane_indices = [a['index'] for a in self.sites if a['index'] not in indices]
-            oo_plane_coords = [a['site'].coords for a in self.sites if a['index'] not in indices]
+            in_plane_coords = [a['site'].coords for a in self.sites if a['atom_index'] in indices]
+            oo_plane_indices = [a['atom_index'] for a in self.sites if a['atom_index'] not in indices]
+            oo_plane_coords = [a['site'].coords for a in self.sites if a['atom_index'] not in indices]
 
             # Order coplanar atoms according to their coordinates
             in_plane_order = u.pointset_order(np.array(in_plane_coords), direction=direction, ret='order')
