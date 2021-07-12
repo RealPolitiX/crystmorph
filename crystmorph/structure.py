@@ -35,7 +35,7 @@ w.filterwarnings("ignore")
 
 
 class CIFParser(object):
-    """ Parser class for crystallographic information files (CIFs).
+    """ Parser class for crystallographic information files (CIFs) and POSCAR.
     """
 
     def __init__(self, filepath, backend='pymatgen'):
@@ -55,6 +55,15 @@ class JSONParser(object):
         with open(filepath) as f:
             struct = json.load(f, **kwargs)
             self.struct = Structure.from_dict(struct)
+
+
+# class DICTParser(object):
+#     """
+#     """
+
+#     def __init__(self, dict, **kwargs):
+
+#         wi
 
 
 class CIFExporter(object):
@@ -86,14 +95,16 @@ class StructureParser(object):
     those present in ``pymatgen.core.structure.Structure`` class.
     """
 
-    def __init__(self, filepath, form='cif', parser_kwargs={}, **kwargs):
-
-        if form == 'cif':
-            parser = CIFParser(filepath=filepath, **parser_kwargs)
-        elif form == 'json':
-            parser = JSONParser(filepath=filepath, **parser_kwargs)
-        elif form is None:
+    def __init__(self, filepath=None, form='cif', struct=None, parser_kwargs={}, **kwargs):
+        
+        if filepath is not None:
+            if form in ['cif', 'poscar', 'vasp', '']:
+                parser = CIFParser(filepath=filepath, **parser_kwargs)
+            elif form == 'json':
+                parser = JSONParser(filepath=filepath, **parser_kwargs)
             self.struct = parser.struct
+        elif form is None:
+            self.struct = struct
 
         # Retrieve essential chemical information (default is the atom name, number, Cartesian and fractional coordinates)
         self.atoms_info_list = kwargs.pop('atoms_info_list', ['specie.name', 'specie.number', 'coords', 'frac_coords'])
