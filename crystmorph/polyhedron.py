@@ -45,26 +45,6 @@ class ConvexPolyhedron(object):
             return False
 
 
-def is_corner_sharing(ph1, ph2, **kwargs):
-    """ Determine if two polyhedra are sharing a corner.
-    """
-
-    is_sharing = []
-    
-    if ph1.n_vertex >= ph2.n_vertex:
-        for v in ph2.vertices:
-            is_sharing.append(np.allclose(ph1.vertices, v, **kwargs))
-    else:
-        for v in ph1.vertices:
-            is_sharing.append(np.allclose(ph2.vertices, v, **kwargs))
-    nclose = np.sum(is_sharing)
-    
-    if nclose == 1:
-        return True # It's counted as corner sharing iff one vertex is common
-    else:
-        return False
-
-
 class Face(object):
     """ Coplanar polygon data structure featuring an ordered vertex list.
     """
@@ -193,23 +173,23 @@ class Octahedron(ConvexPolyhedron):
     """ Octahedral object with coordinate transformation of its vertices and faces.
     """
     
-    def __init__(self, n_vertex=6, n_edge=12, vertices=None, **kwargs):
+    def __init__(self, vertices=None, **kwargs):
         
         if vertices is None:
             center = kwargs.pop('center', np.array([0, 0, 0]))
         else:
             center = np.mean(vertices, axis=0)
-        super().__init__(center=center, n_vertex=n_vertex, n_edge=n_edge)
+        super().__init__(center=center, n_vertex=6, n_edge=12)
         self.vertices = vertices
 
     @property
     def convex_hull(self):
         """ Convex hull of the vertices.
         """
-        try:
-            return ConvexHull(self.vertices)
-        except:
-            return None
+        
+        return ConvexHull(self.vertices)
+        # except:
+        #     return None
 
     @property
     def volume(self):
@@ -283,6 +263,63 @@ class Octahedron(ConvexPolyhedron):
 
         return angles
 
+    def get_edges(self, type='unordered', ret=False):
+        """ Obtain the collection of edges.
+        """
+        
+        if type == 'unordered':
+            edge_list = []
+            for s in self.convex_hull.simplices:
+                edge_list.extend(list(it.combinations(s, 2)))
+            edge_list = list(set(edge_list))
+        
+        elif type == 'ordered':
+            raise NotImplementedError
+        
+        edges = []
+        for vertex_pair in edge_list:
+            edges.append([self.vertices[i] for i in vertex_pair])
+        self.edges = edges
+        
+        if ret:
+            return edges
+        
+    def get_faces(self, type='unordered', ret=False):
+        """ Obtain the collection of faces.
+        """
+        
+        if type == 'unordered':
+            face_list = self.convex_hull.simplices
+        
+        faces = []
+        for face_trio in face_list:
+            faces.append([self.vertices[i] for i in face_trio])
+        self.faces = faces
+        
+        if ret:
+            return faces
 
 
+#########################
+# Connectivity checkers #
+#########################
+
+def is_corner_sharing(ph1, ph2, **kwargs):
+    """ Determine if two polyhedra are sharing a corner.
+    """
+
+    is_sharing = []
+    
+    if ph1.n_vertex >= ph2.n_vertex:
+        for v in ph2.vertices:
+            is_sharing.append(np.allclose(ph1.vertices, v, **kwargs))
+    else:
+        for v in ph1.vertices:
+            is_sharing.append(np.allclose(ph2.vertices, v, **kwargs))
+    nclose = np.sum(is_sharing)
+    
+    if nclose == 1:
+        return True # It's counted as corner sharing iff one vertex is common
+    else:
+        return False
 
