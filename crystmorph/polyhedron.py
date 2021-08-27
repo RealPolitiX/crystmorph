@@ -193,6 +193,14 @@ class Octahedron(ConvexPolyhedron):
         #     return None
 
     @property
+    def coordinates(self):
+        """ Vertex coordinates represented in a flexible class.
+        """
+        
+        if self.vertices is not None:
+            return Coordinates(self.vertices)
+        
+    @property
     def volume(self):
         """ Volume of the octahedron.
         """
@@ -232,12 +240,13 @@ class Octahedron(ConvexPolyhedron):
                           trans.rotyh(beta), trans.rotxh(alpha),
                           trans.translation3D(*-ctr)]
         
-        transform_matrix = np.matmul(*transform_list)
-        self.vertices = np.dot(transform_matrix, self.vertices)
+        transform_matrix = np.linalg.multi_dot(transform_list)
+        vertices = np.dot(transform_matrix, self.coordinates.homogeneous.T).T
+        self.vertices = vertices[:,:3]
         
         # Create vertex list
-        keys = range(1, len(self.n_vertex)+1)
-        self.verts_dict = dict(keys, self.vertices)
+        keys = range(1, self.n_vertex+1)
+        self.verts_dict = dict(zip(keys, self.vertices))
 
     @property
     def apical_vector(self):
