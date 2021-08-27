@@ -7,6 +7,7 @@
 
 from . import transformation as trans
 import numpy as np
+from numpy.linalg import norm
 import vg
 import itertools as it
 from scipy.spatial import ConvexHull
@@ -259,7 +260,7 @@ class Octahedron(ConvexPolyhedron):
             zvec = np.array([0, 0, 1])
             refs = [xvec, yvec, zvec]
 
-        angles = [vg.angle(vector, ref) for ref in refs]
+        angles = [vg.angle(ref, vector) for ref in refs]
 
         return angles
 
@@ -298,6 +299,119 @@ class Octahedron(ConvexPolyhedron):
         
         if ret:
             return faces
+
+def vec_angle(a, b):
+
+    agcos = a.dot(b) / norm(a) * norm(b)
+    ag = np.degrees(np.arccos(agcos))
+    return ag
+
+
+class Coordinates(object):
+    """ Interconvertible Cartesian and homogeneous coordinates.
+    """
+    
+    def __init__(self, coords, coord_type='cartesian'):
+        
+        self.coords = coords
+        self.coord_type = coord_type
+    
+    @property
+    def cartesian(self):
+        
+        if self.coord_type == 'cartesian':
+            return self.coords
+        elif self.coord_type == 'homogeneous':
+            return self.coords[:, :3]
+        
+    @property
+    def homogeneous(self):
+        
+        if self.coord_type == 'homogeneous':
+            return self.coords
+        elif self.coord_type == 'cartesian':
+            last_dimension = np.zeros_like(self.coords)[:,:1] + 1
+            return np.hstack((self.coords, last_dimension))
+        
+    def translate(self, dx=0, dy=0, dz=0, joined=False):
+        """ Translate a set of coordinates.
+        """
+        
+        tmat = trans.translation3D(dx, dy, dz)
+        coords = np.dot(tmat, self.homogeneous.T).T[:,:3]
+        if joined == True:
+            self.join(coords)
+        else:
+            self.coords = coords
+        
+    def rotate(self, direction, angle, radian=False, decimal=6):
+        
+        if direction == 'x':
+            rmat = trans.rotxh(angle, radian=radian)
+        if direction == 'y':
+            rmat = trans.rotyh(angle, radian=radian)
+        if direction == 'z':
+            rmat = trans.rotzh(angle, radian=radian)
+        
+        self.coords = np.dot(rmat, self.homogeneous.T).T[:,:3]
+        if decimal is not None:
+            self.coords = np.round(self.coords, decimal)
+    
+    def join(self, coords, dedup=True):
+        
+        self.coords = np.concatenate((self.coords, coords))
+        
+        if dedup == True:
+            _, unique_id = np.unique(self.coords, axis=0, return_index=True)
+            self.coords = self.coords[unique_id,:]
+
+###################
+# Polyhedron mesh #
+###################
+
+class Mesher(object):
+    
+    def __init__(self, obj=None, vertices=None, faces=None, **kwargs):
+        
+        if obj is not None:
+            self.vertices = getattr(obj, 'vertices')
+            self.faces = getattr(obj, 'faces')
+        else:
+            self.vertices = vertices
+            self.faces = faces
+        
+        print(len(self.vertices), len(self.faces))
+        self.mesh = trimesh.Trimesh(vertices=self.vertices, faces=self.faces, **kwargs)
+        
+    @property
+    def nface(self):
+        
+        return len(self.faces)
+    
+    @property
+    def nvert(self):
+        
+        return len(self.vertices)
+    
+    def __repr__(self):
+        
+        description = trimesh.exchange.obj.export_obj(self.mesh)
+        
+        return 
+        
+    def __add__(self, mesh):
+        
+        other_verts, other_faces = getattr(mesh, 'vertices'), getattr(mesh, 'faces') + self.nvert
+        new_vertices = np.concatenate((self.vertices, other_verts))
+        new_faces = np.concatenate((self.faces, other_faces))
+        
+        return Mesher(vertices=new_vertices, faces=new_faces)
+    
+    def export(self, filename, write_type='w'):
+        
+        with open(filename, write_type) as outfile:
+            mesh_description = trimesh.exchange.obj.export_obj(self.mesh)
+            outfile.writelines(mesh_description)
 
 
 #########################
